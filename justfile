@@ -9,7 +9,7 @@ default:
 # Start from here!
 prepare distro='jazzy': (fetch_ros distro) activate_venv
 
-fetch_ros distro='jazzy':
+fetch_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
 	echo '-- Checking out ros2/rosidl at "{{ distro }}"'
 	if [ -d thirdparty/rosidl ]; then
@@ -24,23 +24,29 @@ fetch_ros distro='jazzy':
 		git clone https://github.com/ros2/common_interfaces.git -b {{ distro }} thirdparty/common_interfaces
 	fi
 
-ensure_venv:
+discover_ros:
+	#!/usr/bin/env bash
+	[ -d thirdparty/rosidl ] || exit
+	[ -d .venv ] || exit
+	if [ -f .venv/lib/site-packages/rosidl.pth ]; then
+		echo '-- Rediscovering Python packages in ros2/rosidl'
+	else
+		echo '-- Discovering Python packages in ros2/rosidl'
+	fi
+	/usr/bin/find thirdparty/rosidl -name __init__.py |\
+		/usr/bin/awk -v max=3 -F'/' 'OFS="/" {
+			out=""; cnt=0;
+			for(i=1; i<=NF; i++) {
+				if($i != "") { cnt++; if(cnt<=max) out=out (out==""?"":"/") $i; }
+			}
+			print "../../../" ($0 ~ /^\// ? "/" : "") out
+		}' |\
+		/usr/bin/sort -u > .venv/lib/site-packages/rosidl.pth
+
+ensure_venv: && discover_ros
 	#!/usr/bin/env bash
 	echo '-- Ensuring venv'
 	[ -d .venv ] || python -m venv .venv
-	cat << EOF > .venv/lib/site-packages/rosidl.pth
-	../../../thirdparty/rosidl/rosidl_adapter
-	../../../thirdparty/rosidl/rosidl_buffer_py
-	../../../thirdparty/rosidl/rosidl_cli
-	../../../thirdparty/rosidl/rosidl_cmake
-	../../../thirdparty/rosidl/rosidl_generator_c
-	../../../thirdparty/rosidl/rosidl_generator_cpp
-	../../../thirdparty/rosidl/rosidl_generator_type_description
-	../../../thirdparty/rosidl/rosidl_parser
-	../../../thirdparty/rosidl/rosidl_pycommon
-	../../../thirdparty/rosidl/rosidl_typesupport_introspection_c
-	../../../thirdparty/rosidl/rosidl_typesupport_introspection_cpp
-	EOF
 	{{ venv_pip }} install -r requirements.txt
 
 [linux]
