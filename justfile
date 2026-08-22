@@ -23,7 +23,7 @@ ensure_venv: && discover_ros
 [private]
 checkout_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
-	IFS=', ' read -ra array <<< `echo 'rosidl, {{ros_interfaces}}' | tr -d '"'`
+	IFS=', ' read -ra array <<< `echo 'rosidl, {{ ros_interfaces }}' | tr -d '"'`
 	for repo in "${array[@]}"; do
 		if [ -d thirdparty/$repo ]; then
 			if [[ `git -C thirdparty/$repo rev-parse HEAD` != `git -C thirdparty/$repo rev-parse {{ distro }}` ]]; then
@@ -87,13 +87,13 @@ discover_ros:
 use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 	#!/usr/bin/env bash
 	echo '-- Compiling ROS interfaces'
-	{{venv_python}} - << EOF > /dev/null
+	{{ venv_python }} - << EOF > /dev/null
 	from rosidl_adapter.msg import convert_msg_to_idl
 	from rosidl_adapter.srv import convert_srv_to_idl
 	from rosidl_adapter.action import convert_action_to_idl
 	from pathlib import Path
 
-	for repo in [{{ros_interfaces}}]:
+	for repo in [{{ ros_interfaces }}]:
 		src = Path.cwd() / f"thirdparty/{repo}"
 		for msg in src.glob('**/*.msg'):
 			pkg = msg.parents[1]
@@ -106,7 +106,7 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 			convert_action_to_idl(pkg, pkg.name, action.relative_to(pkg), action.parent)
 	EOF
 	echo '-- Removing stale artifacts'
-	IFS=', ' read -ra array <<< `echo '{{ros_interfaces}}' | tr -d '"'`
+	IFS=', ' read -ra array <<< `echo '{{ ros_interfaces }}' | tr -d '"'`
 	for repo in "${array[@]}"; do
 		/usr/bin/find thirdparty/$repo -name *.json -print0 | xargs -r0 rm
 	done
@@ -114,7 +114,7 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 # Compile your IDLs!
 compile pkg in_dir out_dir=in_dir:
 	#!/usr/bin/env bash
-	{{venv_python}} - << EOF
+	{{ venv_python }} - << EOF
 	from rosidl_generator_type_description.cli import HashTypeDescription
 	from pathlib import Path
 
@@ -132,16 +132,16 @@ compile pkg in_dir out_dir=in_dir:
 	if __name__ == '__main__':
 		import shutil
 
-		my_package_name = r"{{pkg}}"
-		my_in_dir = r"{{in_dir}}"
-		my_out_dir = r"{{out_dir}}"
+		my_package_name = r"{{ pkg }}"
+		my_in_dir = r"{{ in_dir }}"
+		my_out_dir = r"{{ out_dir }}"
 		my_includes = [] # TODO: support custom includes
 
 		# Collect includes
 		all_includes = [Path(p) for p in my_includes]
 		all_includes.extend(
 			[Path.cwd() / f"thirdparty/{repo}" for repo in [
-				{{ros_interfaces}},
+				{{ ros_interfaces }},
 			]]
 		)
 
@@ -199,26 +199,28 @@ compile pkg in_dir out_dir=in_dir:
 			if not any(df.parent.iterdir()): df.parent.rmdir()
 	EOF
 
-[linux, private]
+[private]
+[linux]
 hint_activate_venv:
 	#!/usr/bin/env bash
 	echo
-	echo '-- You can activate Python venv inside your current shell:'
+	echo '-- You can activate rosidl Python venv inside your current shell:'
 	echo
-	echo '  source .venv/{{ venv_bin_folder }}/activate'
+	echo '  {{ BOLD + WHITE }}source .venv/{{ venv_bin_folder }}/activate{{ NORMAL }}'
 	echo
 
-[windows, private]
+[private]
+[windows]
 hint_activate_venv:
 	#!/usr/bin/env bash
 	clear
-	echo '-- You can activate Python venv inside your current shell.'
+	echo '-- You can activate rosidl Python venv inside your current shell.'
 	echo
 	echo 'For CMD:'
-	echo '  call .venv\{{ venv_bin_folder }}\activate.bat'
+	echo '  {{ BOLD + WHITE }}call .venv\{{ venv_bin_folder }}\activate.bat{{ NORMAL }}'
 	echo
 	echo 'For PowerShell:'
-	echo '  .venv\Scripts\Activate.ps1'
+	echo '  {{ BOLD + WHITE }}.venv\Scripts\Activate.ps1{{ NORMAL }}'
 	echo
 	echo 'For Git BASH:'
-	echo '  source .venv/{{ venv_bin_folder }}/activate'
+	echo '  {{ BOLD + WHITE }}source .venv/{{ venv_bin_folder }}/activate{{ NORMAL }}'
