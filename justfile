@@ -21,7 +21,7 @@ ensure_venv: && discover_ros
 	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
 
 [private]
-fetch_ros distro='jazzy': && discover_ros
+checkout_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
 	IFS=', ' read -ra array <<< `echo 'rosidl, {{ros_interfaces}}' | tr -d '"'`
 	for repo in "${array[@]}"; do
@@ -34,6 +34,34 @@ fetch_ros distro='jazzy': && discover_ros
 		else
 			echo "-- Cloning ros2/$repo at \"{{ distro }}\""
 			git clone https://github.com/ros2/$repo.git -b {{ distro }} thirdparty/$repo
+		fi
+	done
+
+# Check for ROS updates!
+fetch_ros:
+	#!/usr/bin/env bash
+	IFS=', ' read -ra array <<< `echo 'rosidl, {{ ros_interfaces }}' | tr -d '"'`
+	for repo in "${array[@]}"; do
+		if [ -d thirdparty/$repo ]; then
+			echo "-- Fetching ros2/$repo from remote"
+			git -C thirdparty/$repo fetch origin --tags --prune
+			if git -C thirdparty/$repo rev-parse --abbrev-ref @{u} > /dev/null 2> /dev/null; then # Have any upstream
+				if [[ `git -C thirdparty/$repo rev-list --count HEAD..@{u}` != '0' ]]; then # Behind count != 0
+					echo "{{ CYAN }}Update available{{ NORMAL }} for \"`git -C thirdparty/$repo branch --show-current`\"!"
+					if [[ `git -C thirdparty/$repo rev-list --count @{u}..HEAD` == '0' ]]; then # Ahead count == 0
+						echo "Run {{ BOLD + WHITE }}git -C thirdparty/$repo pull{{ NORMAL }} to update."
+					else
+						echo "Wow, you have customized ros2/$repo; receive updates when you're ready, then."
+					fi
+				else
+					echo "{{ GREEN }}Up to date{{ NORMAL }} with \"`git -C thirdparty/$repo rev-parse --abbrev-ref @{u}`\"."
+				fi
+			else
+				echo 'Not tracking any remote branch, further checking is skipped.'
+			fi
+		else
+			echo "-- Cloning ros2/$repo at default branch"
+			git clone https://github.com/ros2/$repo.git thirdparty/$repo
 		fi
 	done
 
@@ -56,7 +84,7 @@ discover_ros:
 		}' |\
 		/usr/bin/sort -u > .venv/lib/site-packages/rosidl.pth
 
-use_ros distro='jazzy': (fetch_ros distro) ensure_venv
+use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 	#!/usr/bin/env bash
 	echo '-- Compiling ROS interfaces'
 	{{venv_python}} - << EOF > /dev/null
