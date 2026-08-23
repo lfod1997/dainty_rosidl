@@ -19,7 +19,7 @@ help: list
 
 	{{ WHITE }}Abilities{{ NORMAL }}
 
-	- Compile IDLs into type definition JSONs by running {{ BOLD + WHITE }}just compile{{ NORMAL }} followed by your package name, then path to the directory containing your IDLs, then optionally a path to populate at.
+	- Compile IDLs into type definition JSONs by running {{ BOLD + WHITE }}just compile{{ NORMAL }} followed by path to the directory containing your IDLs, then optionally a path to populate at.
 
 	- Access the rosidl APIs in a lightweight Python venv, enabling you to achieve ROS-compatible type support through an official implementation.
 
@@ -212,8 +212,8 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 		/usr/bin/find thirdparty/interfaces/$repo -name *.json -print0 | xargs -r0 rm
 	done
 
-# Compile my IDLs!
-compile pkg in_dir out_dir=in_dir:
+# Compile my IDLs to JSON!
+compile in_dir out_dir=in_dir:
 	#!/usr/bin/env bash
 	captured_python=`pwd`/{{ venv_python }}
 	cd {{ invocation_directory() }}
@@ -231,7 +231,7 @@ compile pkg in_dir out_dir=in_dir:
 		match = re.search(IDL_MODULE_PATTERN, idl_text)
 		return (match.group(1), match.group(2)) if match else ("", "")
 
-	def compile_idl(p: str, includes: list, package_name = None, out_path = None) -> str:
+	def compile_idl(p: str, includes: list, package_name: str | None = None, out_path: Path | None = None) -> str:
 		path = Path(p).resolve()
 		if package_name is None: package_name = path.parents[1].name
 		if out_path is None: out_path = path.parents[1] # Suffixed with '/msg'
@@ -246,9 +246,8 @@ compile pkg in_dir out_dir=in_dir:
 		import sys
 		import shutil
 
-		my_package_name = r"{{ pkg }}"
-		my_in_dir = r"{{ in_dir }}"
-		my_out_dir = r"{{ out_dir }}"
+		my_in = Path(r"{{ in_dir }}")
+		my_out_dir = Path(r"{{ out_dir }}")
 		my_includes = [] # TODO: support custom includes
 
 		# Collect includes
@@ -260,15 +259,26 @@ compile pkg in_dir out_dir=in_dir:
 		)
 
 		# Collect all IDLs to compile
+		my_in_dir = my_in
+		my_in_glob = []
+		if my_in.is_dir():
+			my_in_glob = my_in.glob('**/*.idl')
+		elif my_in.is_file() and my_in.name.endswith('.idl'):
+			my_in_dir = my_in.parent
+			if my_out_dir.is_file(): # In case default arg was passed
+				my_out_dir = my_in_dir
+			my_in_glob = [my_in]
+		else:
+			raise ValueError(my_in)
+
+		# Check IDLs
 		my_idls = []
 		original_dir_of = {}
-		for idl in Path(my_in_dir).glob('**/*.idl'):
+		package_name_of = {}
+		for idl in my_in_glob:
 			package_name, category = check_idl(idl)
 			if len(package_name) == 0 or len(category) == 0:
 				print(f'Skipping file {idl}: not a ROS-compatible IDL, expected struct in nested modules', file=sys.stderr)
-				continue
-			if package_name != my_package_name:
-				print(f'Skipping file {idl}: package name mismatch, expected "{my_package_name}"; got "{package_name}"', file=sys.stderr)
 				continue
 			if category not in ACCEPTED_IDL_INNER_MODULE:
 				print(f'Skipping file {idl}: bad inner module name, expected one of: "', end='', file=sys.stderr)
@@ -282,6 +292,7 @@ compile pkg in_dir out_dir=in_dir:
 				df = Path(shutil.move(idl, d))
 				original_dir_of[df] = idl.parent
 				my_idls.append(str(df))
+				package_name_of[str(df)] = package_name
 			else:
 				if idl.parent.name != category:
 					# Wrongly located, eg. a srv IDL located at pkg/msg;
@@ -290,6 +301,7 @@ compile pkg in_dir out_dir=in_dir:
 					continue
 				# Located following ROS convention, good
 				my_idls.append(str(idl))
+				package_name_of[str(idl)] = package_name
 
 		# Restore directories
 		my_idls = set(my_idls)
@@ -305,8 +317,9 @@ compile pkg in_dir out_dir=in_dir:
 			try:
 				o = compile_idl(
 					i, all_includes,
-					my_package_name if i in my_idls else None,
-					my_in_dir if i in my_idls else None
+					package_name_of[i] if i in my_idls else None,
+					# TODO: Warn about the folder structure that makes this cond True
+					my_in_dir if i in my_idls and Path(i).parents[1].name != package_name_of[i] else None
 				)
 			except FileNotFoundError as e:
 				who = e.filename
@@ -320,12 +333,11 @@ compile pkg in_dir out_dir=in_dir:
 				done.add(i)
 				if i in my_idls: my_jsons.append(o)
 
-		d = Path(my_out_dir)
 		for o in my_jsons:
 			o = Path(o)
-			if d.samefile(o.parent): continue
-			(d / o.name).unlink(missing_ok=True)
-			print(str(shutil.move(o, d)))
+			if my_out_dir.samefile(o.parent): continue
+			(my_out_dir / o.name).unlink(missing_ok=True)
+			print(str(shutil.move(o, my_out_dir)))
 			if not any(o.parent.iterdir()): o.parent.rmdir()
 		for df in original_dir_of.keys():
 			shutil.move(df, original_dir_of[df])
