@@ -19,7 +19,7 @@ help: list
 
 	{{ WHITE }}Abilities{{ NORMAL }}
 
-	- Compile IDLs into type definition JSONs by running {{ BOLD + WHITE }}just compile{{ NORMAL }} followed by your package name, then {{ ITALIC }}absolute{{ NORMAL }} path to the directory containing your IDLs, then optionally an {{ ITALIC }}absolute{{ NORMAL }} path to populate at.
+	- Compile IDLs into type definition JSONs by running {{ BOLD + WHITE }}just compile{{ NORMAL }} followed by your package name, then path to the directory containing your IDLs, then optionally a path to populate at.
 
 	- Access the rosidl APIs in a lightweight Python venv, enabling you to achieve ROS-compatible type support through an official implementation.
 
@@ -159,7 +159,7 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 	from pathlib import Path
 
 	for repo in [{{ ros_interfaces }}]:
-		src = Path.cwd() / f"thirdparty/{repo}"
+		src = Path(r'{{ justfile_directory() }}') / f"thirdparty/{repo}"
 		for msg in src.glob('**/*.msg'):
 			pkg = msg.parents[1]
 			convert_msg_to_idl(pkg, pkg.name, msg.relative_to(pkg), msg.parent)
@@ -179,12 +179,14 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 # Compile my IDLs!
 compile pkg in_dir out_dir=in_dir:
 	#!/usr/bin/env bash
-	{{ venv_python }} - << EOF
+	captured_python=`pwd`/{{ venv_python }}
+	cd {{ invocation_directory() }}
+	$captured_python - << EOF
 	from rosidl_generator_type_description.cli import HashTypeDescription
 	from pathlib import Path
 	import re
 
-	IDL_MODULE_PATTERN = r'\bmodule\s+(\w+)\s*\{[^{}]*?\bmodule\s+(msg|srv|action)\s*\{'
+	IDL_MODULE_PATTERN = r'\bmodule\s+(\w+)\s*\{[^{}]*?\bmodule\s+(\w+)\s*\{'
 	ACCEPTED_IDL_INNER_MODULE = ['msg', 'srv', 'action']
 
 	def check_idl(path: Path):
@@ -205,6 +207,7 @@ compile pkg in_dir out_dir=in_dir:
 		)[0]
 
 	if __name__ == '__main__':
+		import sys
 		import shutil
 
 		my_package_name = r"{{ pkg }}"
@@ -215,7 +218,7 @@ compile pkg in_dir out_dir=in_dir:
 		# Collect includes
 		all_includes = [Path(p) for p in my_includes]
 		all_includes.extend(
-			[Path.cwd() / f"thirdparty/{repo}" for repo in [
+			[Path(r'{{ justfile_directory() }}') / f"thirdparty/{repo}" for repo in [
 				{{ ros_interfaces }},
 			]]
 		)
@@ -224,16 +227,32 @@ compile pkg in_dir out_dir=in_dir:
 		my_idls = []
 		original_dir_of = {}
 		for idl in Path(my_in_dir).glob('**/*.idl'):
+			package_name, category = check_idl(idl)
+			if len(package_name) == 0 or len(category) == 0:
+				print(f'Skipping file {idl}: not a ROS-compatible IDL, expected struct in nested modules', file=sys.stderr)
+				continue
+			if package_name != my_package_name:
+				print(f'Skipping file {idl}: package name mismatch, expected "{my_package_name}"; got "{package_name}"', file=sys.stderr)
+				continue
+			if category not in ACCEPTED_IDL_INNER_MODULE:
+				print(f'Skipping file {idl}: bad inner module name, expected one of: "', end='', file=sys.stderr)
+				print(*ACCEPTED_IDL_INNER_MODULE, sep='", "', end='', file=sys.stderr)
+				print(f'"; got: "{category}"', file=sys.stderr)
+				continue
 			if idl.parent.name not in ACCEPTED_IDL_INNER_MODULE:
-				package_name, category = check_idl(idl)
-				if package_name != my_package_name or category not in ACCEPTED_IDL_INNER_MODULE:
-					continue
+				# Most possibly located in its "package root"; we want to support this
 				d = idl.parent / category
 				d.mkdir(exist_ok=True)
 				df = Path(shutil.move(idl, d))
 				original_dir_of[df] = idl.parent
 				my_idls.append(str(df))
 			else:
+				if idl.parent.name != category:
+					# Wrongly located, eg. a srv IDL located at pkg/msg;
+					# We're not definitely sure where to actually put it, just warn the user
+					print(f'Skipping file {idl}: bad location, expected parent: "{category}"', file=sys.stderr)
+					continue
+				# Located following ROS convention, good
 				my_idls.append(str(idl))
 
 		# Restore directories
