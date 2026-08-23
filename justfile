@@ -12,6 +12,14 @@ default:
 # Start from here!
 prepare distro='jazzy': (use_ros distro) hint_activate_venv
 
+ensure_venv: && discover_ros
+	#!/usr/bin/env bash
+	echo '-- Ensuring venv'
+	[ -d .venv ] || python -m venv .venv
+	{{ venv_pip }} install -r requirements.txt
+	# Hijack package resolution of unnecessary ROS bloatwares
+	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
+
 [private]
 fetch_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
@@ -75,13 +83,93 @@ use_ros distro='jazzy': (fetch_ros distro) ensure_venv
 		/usr/bin/find thirdparty/$repo -name *.json -print0 | xargs -r0 rm
 	done
 
-ensure_venv: && discover_ros
+# Compile your IDLs!
+compile pkg in_dir out_dir=in_dir:
 	#!/usr/bin/env bash
-	echo '-- Ensuring venv'
-	[ -d .venv ] || python -m venv .venv
-	{{ venv_pip }} install -r requirements.txt
-	# Hijack package resolution of unnecessary ROS bloatwares
-	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
+	{{venv_python}} - << EOF
+	from rosidl_generator_type_description.cli import HashTypeDescription
+	from pathlib import Path
+
+	def compile_idl(p: str, includes: list, package_name = None, out_path = None) -> str:
+		path = Path(p).resolve()
+		if package_name is None: package_name = path.parents[1].name
+		if out_path is None: out_path = path.parents[1] # Suffixed with '/msg'
+		return HashTypeDescription('').generate_type_hashes(
+			package_name=package_name,
+			interface_files=[p],
+			include_paths=includes,
+			output_path=out_path
+		)[0]
+
+	if __name__ == '__main__':
+		import shutil
+
+		my_package_name = r"{{pkg}}"
+		my_in_dir = r"{{in_dir}}"
+		my_out_dir = r"{{out_dir}}"
+		my_includes = [] # TODO: support custom includes
+
+		# Collect includes
+		all_includes = [Path(p) for p in my_includes]
+		all_includes.extend(
+			[Path.cwd() / f"thirdparty/{repo}" for repo in [
+				{{ros_interfaces}},
+			]]
+		)
+
+		# Collect all IDLs to compile
+		my_idls = []
+		original_dir_of = {}
+		for idl in Path(my_in_dir).glob('**/*.idl'):
+			if idl.parent.name not in ['msg', 'srv', 'action']:
+				d = idl.parent / 'msg' # TODO: Categorize by reading the IDL
+				d.mkdir(exist_ok=True)
+				df = Path(shutil.move(idl, d))
+				original_dir_of[df] = idl.parent
+				my_idls.append(str(df))
+			else:
+				my_idls.append(str(idl))
+
+		# Restore directories
+		my_idls = set(my_idls)
+		todo = list(my_idls)
+		done = set()
+		my_jsons = []
+		while len(todo) != 0:
+			i = todo[-1]
+			if i in done:
+				assert i == todo.pop()
+				continue
+			o = ''
+			try:
+				o = compile_idl(
+					i, all_includes,
+					my_package_name if i in my_idls else None,
+					my_in_dir if i in my_idls else None
+				)
+			except FileNotFoundError as e:
+				who = e.filename
+				if who is None: raise e
+				if not isinstance(who, str): who = str(who, encoding='utf-8')
+				who = who.rsplit('.', 1)[0] + '.idl'
+				if who == i: raise e
+				todo.append(who)
+			else:
+				assert i == todo.pop()
+				done.add(i)
+				if i in my_idls: my_jsons.append(o)
+
+		d = Path(my_out_dir)
+		for o in my_jsons:
+			o = Path(o)
+			if d.samefile(o.parent): continue
+			(d / o.name).unlink(missing_ok=True)
+			print(str(shutil.move(o, d)))
+			if not any(o.parent.iterdir()): o.parent.rmdir()
+		for df in original_dir_of.keys():
+			shutil.move(df, original_dir_of[df])
+			if not any(df.parent.iterdir()): df.parent.rmdir()
+	EOF
 
 [linux, private]
 hint_activate_venv:
