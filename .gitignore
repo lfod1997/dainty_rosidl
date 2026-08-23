@@ -1,6 +1,6 @@
 # External repos cloned on prepare
 /thirdparty/rosidl
-/thirdparty/*_interfaces
+/thirdparty/interfaces
 
 # Editors
 .vscode

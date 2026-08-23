@@ -86,45 +86,76 @@ ensure_venv: && discover_ros
 [private]
 checkout_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
-	IFS=', ' read -ra array <<< `echo 'rosidl, {{ ros_interfaces }}' | tr -d '"'`
+	if [ -d thirdparty/rosidl ]; then
+		if [[ `git -C thirdparty/rosidl rev-parse HEAD` != `git -C thirdparty/rosidl rev-parse {{ distro }}` ]]; then
+			echo "-- Checking out ros2/rosidl at \"{{ distro }}\""
+			git -C thirdparty/rosidl clean -fd
+			git -C thirdparty/rosidl checkout {{ distro }}
+		fi
+	else
+		echo "-- Cloning ros2/rosidl at \"{{ distro }}\""
+		git clone https://github.com/ros2/rosidl.git -b {{ distro }} thirdparty/rosidl
+	fi
+	IFS=', ' read -ra array <<< `echo '{{ ros_interfaces }}' | tr -d '"'`
 	for repo in "${array[@]}"; do
-		if [ -d thirdparty/$repo ]; then
-			if [[ `git -C thirdparty/$repo rev-parse HEAD` != `git -C thirdparty/$repo rev-parse {{ distro }}` ]]; then
+		if [ -d thirdparty/interfaces/$repo ]; then
+			if [[ `git -C thirdparty/interfaces/$repo rev-parse HEAD` != `git -C thirdparty/interfaces/$repo rev-parse {{ distro }}` ]]; then
 				echo "-- Checking out ros2/$repo at \"{{ distro }}\""
-				git -C thirdparty/$repo clean -fd
-				git -C thirdparty/$repo checkout {{ distro }}
+				git -C thirdparty/interfaces/$repo clean -fd
+				git -C thirdparty/interfaces/$repo checkout {{ distro }}
 			fi
 		else
 			echo "-- Cloning ros2/$repo at \"{{ distro }}\""
-			git clone https://github.com/ros2/$repo.git -b {{ distro }} thirdparty/$repo
+			git clone https://github.com/ros2/$repo.git -b {{ distro }} thirdparty/interfaces/$repo
 		fi
 	done
 
 # Check for ROS updates!
 fetch_ros:
 	#!/usr/bin/env bash
-	IFS=', ' read -ra array <<< `echo 'rosidl, {{ ros_interfaces }}' | tr -d '"'`
+	if [ -d thirdparty/rosidl ]; then
+		echo "-- Fetching ros2/rosidl from remote"
+		git -C thirdparty/rosidl fetch origin --tags --prune
+		if git -C thirdparty/rosidl rev-parse --abbrev-ref @{u} > /dev/null 2> /dev/null; then # Have any upstream
+			if [[ `git -C thirdparty/rosidl rev-list --count HEAD..@{u}` != '0' ]]; then # Behind count != 0
+				echo "{{ CYAN }}Update available{{ NORMAL }} for \"`git -C thirdparty/rosidl branch --show-current`\"!"
+				if [[ `git -C thirdparty/rosidl rev-list --count @{u}..HEAD` == '0' ]]; then # Ahead count == 0
+					echo "Run {{ BOLD + WHITE }}git -C thirdparty/rosidl pull{{ NORMAL }} to update."
+				else
+					echo "Wow, you have customized ros2/rosidl; receive updates when you're ready, then."
+				fi
+			else
+				echo "{{ GREEN }}Up to date{{ NORMAL }} with \"`git -C thirdparty/rosidl rev-parse --abbrev-ref @{u}`\"."
+			fi
+		else
+			echo 'Not tracking any remote branch, further checking is skipped.'
+		fi
+	else
+		echo "-- Cloning ros2/rosidl at default branch"
+		git clone https://github.com/ros2/rosidl.git thirdparty/rosidl
+	fi
+	IFS=', ' read -ra array <<< `echo '{{ ros_interfaces }}' | tr -d '"'`
 	for repo in "${array[@]}"; do
-		if [ -d thirdparty/$repo ]; then
+		if [ -d thirdparty/interfaces/$repo ]; then
 			echo "-- Fetching ros2/$repo from remote"
-			git -C thirdparty/$repo fetch origin --tags --prune
-			if git -C thirdparty/$repo rev-parse --abbrev-ref @{u} > /dev/null 2> /dev/null; then # Have any upstream
-				if [[ `git -C thirdparty/$repo rev-list --count HEAD..@{u}` != '0' ]]; then # Behind count != 0
-					echo "{{ CYAN }}Update available{{ NORMAL }} for \"`git -C thirdparty/$repo branch --show-current`\"!"
-					if [[ `git -C thirdparty/$repo rev-list --count @{u}..HEAD` == '0' ]]; then # Ahead count == 0
-						echo "Run {{ BOLD + WHITE }}git -C thirdparty/$repo pull{{ NORMAL }} to update."
+			git -C thirdparty/interfaces/$repo fetch origin --tags --prune
+			if git -C thirdparty/interfaces/$repo rev-parse --abbrev-ref @{u} > /dev/null 2> /dev/null; then # Have any upstream
+				if [[ `git -C thirdparty/interfaces/$repo rev-list --count HEAD..@{u}` != '0' ]]; then # Behind count != 0
+					echo "{{ CYAN }}Update available{{ NORMAL }} for \"`git -C thirdparty/interfaces/$repo branch --show-current`\"!"
+					if [[ `git -C thirdparty/interfaces/$repo rev-list --count @{u}..HEAD` == '0' ]]; then # Ahead count == 0
+						echo "Run {{ BOLD + WHITE }}git -C thirdparty/interfaces/$repo pull{{ NORMAL }} to update."
 					else
 						echo "Wow, you have customized ros2/$repo; receive updates when you're ready, then."
 					fi
 				else
-					echo "{{ GREEN }}Up to date{{ NORMAL }} with \"`git -C thirdparty/$repo rev-parse --abbrev-ref @{u}`\"."
+					echo "{{ GREEN }}Up to date{{ NORMAL }} with \"`git -C thirdparty/interfaces/$repo rev-parse --abbrev-ref @{u}`\"."
 				fi
 			else
 				echo 'Not tracking any remote branch, further checking is skipped.'
 			fi
 		else
 			echo "-- Cloning ros2/$repo at default branch"
-			git clone https://github.com/ros2/$repo.git thirdparty/$repo
+			git clone https://github.com/ros2/$repo.git thirdparty/interfaces/$repo
 		fi
 	done
 
@@ -159,7 +190,7 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 	from pathlib import Path
 
 	for repo in [{{ ros_interfaces }}]:
-		src = Path(r'{{ justfile_directory() }}') / f"thirdparty/{repo}"
+		src = Path(r'{{ justfile_directory() }}') / f"thirdparty/interfaces/{repo}"
 		for msg in src.glob('**/*.msg'):
 			pkg = msg.parents[1]
 			convert_msg_to_idl(pkg, pkg.name, msg.relative_to(pkg), msg.parent)
@@ -173,7 +204,7 @@ use_ros distro='jazzy': (checkout_ros distro) ensure_venv
 	echo '-- Removing stale artifacts'
 	IFS=', ' read -ra array <<< `echo '{{ ros_interfaces }}' | tr -d '"'`
 	for repo in "${array[@]}"; do
-		/usr/bin/find thirdparty/$repo -name *.json -print0 | xargs -r0 rm
+		/usr/bin/find thirdparty/interfaces/$repo -name *.json -print0 | xargs -r0 rm
 	done
 
 # Compile my IDLs!
@@ -218,7 +249,7 @@ compile pkg in_dir out_dir=in_dir:
 		# Collect includes
 		all_includes = [Path(p) for p in my_includes]
 		all_includes.extend(
-			[Path(r'{{ justfile_directory() }}') / f"thirdparty/{repo}" for repo in [
+			[Path(r'{{ justfile_directory() }}') / f"thirdparty/interfaces/{repo}" for repo in [
 				{{ ros_interfaces }},
 			]]
 		)
