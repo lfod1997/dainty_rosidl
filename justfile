@@ -83,6 +83,11 @@ ensure_venv: && discover_ros
 	# Hijack package resolution of unnecessary ROS bloatwares
 	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
 
+# Print the Python to use!
+find_python:
+	#!/usr/bin/env bash
+	printf '%s' '{{ absolute_path(venv_python) }}'
+
 [private]
 checkout_ros distro='jazzy': && discover_ros
 	#!/usr/bin/env bash
