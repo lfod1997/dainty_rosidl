@@ -48,7 +48,10 @@ ensure_venv: && discover_ros
 	[ -d .venv ] || python -m venv .venv
 	{{ venv_pip }} install -r requirements.txt
 	# Hijack package resolution of unnecessary ROS bloatwares
-	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
+	purelib=`{{venv_python}} -c "import sysconfig; print(sysconfig.get_path('purelib'))"`
+	command -v cygpath > /dev/null 2> /dev/null && purelib=`cygpath -u "$purelib"` # Windows-only
+	rel_root=`realpath --relative-to=$purelib $(pwd)`
+	echo $rel_root/src/faked > $purelib/faked.pth
 
 # Print the Python to use!
 find_python:
@@ -136,20 +139,23 @@ discover_ros:
 	#!/usr/bin/env bash
 	[ -d thirdparty/rosidl ] || exit 0
 	[ -d .venv ] || exit 0
-	if [ -f .venv/lib/site-packages/rosidl.pth ]; then
+	purelib=`{{venv_python}} -c "import sysconfig; print(sysconfig.get_path('purelib'))"`
+	command -v cygpath > /dev/null 2> /dev/null && purelib=`cygpath -u "$purelib"` # Windows-only
+	rel_root=`realpath --relative-to=$purelib $(pwd)`
+	if [ -f "$purelib/rosidl.pth" ]; then
 		echo '-- Rediscovering Python packages in ros2/rosidl'
 	else
 		echo '-- Discovering Python packages in ros2/rosidl'
 	fi
 	/usr/bin/find thirdparty/rosidl -name __init__.py |\
-		/usr/bin/awk -v max=3 -F'/' 'OFS="/" {
-			out=""; cnt=0;
+		/usr/bin/awk -v max=3 -F'/' "OFS=\"/\" {
+			out=\"\"; cnt=0;
 			for(i=1; i<=NF; i++) {
-				if($i != "") { cnt++; if(cnt<=max) out=out (out==""?"":"/") $i; }
+				if(\$i != \"\") { cnt++; if(cnt<=max) out=out (out==\"\"?\"\":\"/\") \$i; }
 			}
-			print "../../../" ($0 ~ /^\// ? "/" : "") out
-		}' |\
-		/usr/bin/sort -u > .venv/lib/site-packages/rosidl.pth
+			print \"$rel_root/\" (\$0 ~ /^\// ? \"/\" : \"\") out
+		}" |\
+		/usr/bin/sort -u > $purelib/rosidl.pth
 
 # Switch ROS 2 distro!
 use_ros distro='jazzy': (checkout_ros distro) ensure_venv
