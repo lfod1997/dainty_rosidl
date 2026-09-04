@@ -25,7 +25,7 @@ To integrate into your build system:
 1. Embed this repo into some git-ignored location within your project
 2. Let your build system run the command `just use_ros YOUR_ROS_DISTRO`, to fetch necessary contents
 3. Use it:
-    - Run `just compile IN_DIR OUT_DIR` to compile your IDLs into ROS type description JSONs
+    - Run `just compile IN_DIR [OUT_DIR]` to compile your IDLs into ROS type description JSONs. OUT_DIR is optional; if not set, result will be put beside their IDL sources
     - Run `just find_python` and read its output, to get a Python interpreter you can use to access rosidl (a.k.a. it can `import rosidl_XXX`) and run your custom Python script
 
 Example CMake:
