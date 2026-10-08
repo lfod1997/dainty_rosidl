@@ -182,6 +182,16 @@ compile pkg in_dir out_dir=in_dir:
 	{{ venv_python }} - << EOF
 	from rosidl_generator_type_description.cli import HashTypeDescription
 	from pathlib import Path
+	import re
+
+	IDL_MODULE_PATTERN = r'\bmodule\s+(\w+)\s*\{[^{}]*?\bmodule\s+(msg|srv|action)\s*\{'
+	ACCEPTED_IDL_INNER_MODULE = ['msg', 'srv', 'action']
+
+	def check_idl(path: Path):
+		with open(path, 'r') as f:
+			idl_text = f.read()
+		match = re.search(IDL_MODULE_PATTERN, idl_text)
+		return (match.group(1), match.group(2)) if match else ("", "")
 
 	def compile_idl(p: str, includes: list, package_name = None, out_path = None) -> str:
 		path = Path(p).resolve()
@@ -214,8 +224,11 @@ compile pkg in_dir out_dir=in_dir:
 		my_idls = []
 		original_dir_of = {}
 		for idl in Path(my_in_dir).glob('**/*.idl'):
-			if idl.parent.name not in ['msg', 'srv', 'action']:
-				d = idl.parent / 'msg' # TODO: Categorize by reading the IDL
+			if idl.parent.name not in ACCEPTED_IDL_INNER_MODULE:
+				package_name, category = check_idl(idl)
+				if package_name != my_package_name or category not in ACCEPTED_IDL_INNER_MODULE:
+					continue
+				d = idl.parent / category
 				d.mkdir(exist_ok=True)
 				df = Path(shutil.move(idl, d))
 				original_dir_of[df] = idl.parent
