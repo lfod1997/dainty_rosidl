@@ -26,49 +26,16 @@ help: list
 	- Works with any ROS distro: it's an extraction from the ROS toolset itself.
 
 	- Switch distro by {{ BOLD + WHITE }}just use_ros{{ NORMAL }} , targeting multiple ROS versions made easy.
-	EOF
-	echo
-	read -p "Learn how to get started? (y/N): " confirm && [[ "$confirm" == [yY] ]] || exit 0
-	echo
-	cat << EOF | fold -s -w $cols
+
 	{{ WHITE }}Get Started{{ NORMAL }}
 
-	- To use from terminal, run {{ BOLD + WHITE }}just prepare{{ NORMAL }} first.
+	- To use from terminal, run {{ BOLD + WHITE }}just prepare {{ NORMAL + CYAN }}distro{{ NORMAL }} first.
 
-	- To use inside your build pipeline, first run {{ BOLD + WHITE }}just use_ros{{ NORMAL }} upon build or configure, then run any script using the venv's Python executable.
+	- To use in a build pipeline:
+	  1. first run {{ BOLD + WHITE }}just use_ros {{ NORMAL + CYAN }}distro{{ NORMAL }} upon build or configure
+	  2. then run any script using the venv's Python executable
 
-	  Both commands accept a {{ CYAN }}distro{{ NORMAL }} argument.
-	  The default {{ GREEN }}jazzy{{ NORMAL }} is recommended for new projects; but you may be targeting a different one, hopefully newer, as type handling differs between humble and newer versions.
-	EOF
-	echo
-	read -p "Learn how it works? (y/N): " confirm && [[ "$confirm" == [yY] ]] || exit 0
-	echo
-	cat << EOF | fold -s -w $cols
-	{{ WHITE }}How it works{{ NORMAL }}
-
-	  The script only relies on the "working parts" inside ROS that translates one interface definition format into another, i.e. the rosidl Python modules. Taking advantage of a venv, a simple monkey-patch approach is used to keep the venv small and self-contained.
-	EOF
-	echo
-	read -p "You should be good to go. Should I talk more (really just bullsh)? (y/N): " confirm && [[ "$confirm" == [yY] ]] || exit 0
-	echo
-	cat << EOF | fold -s -w $cols
-	{{ WHITE }}Why?{{ NORMAL }}
-
-	  Life inside a ROS environment may be fine. But it's so frustratingly hard if you don't work that way and try to integrate ROS into whatever you're building, as a normal dependency.
-
-	  "Workspace managers" like Pixi tries to solve the compatibility & cohesiveness problem, and things are a bit better. But the pyramid of dependency is still inverted: ROS wants {{ ITALIC }}you{{ NORMAL }} to be a package, not the other way around.
-
-	  But ROS is no OS after all: it's a package that grants us machiniloquence so we can talk to robots. It's supposed to appear like a skill book at our disposal. It can be helpful if the book has more to offer; but if those out-of-the-box convenience one might enjoy is now mandatory, I got a strong feeling that particular things are wrongly arranged.
-	EOF
-	echo
-	read -p "I can whine even more. Go on? (y/N): " confirm && [[ "$confirm" == [yY] ]] || exit 0
-	echo
-	cat << EOF | fold -s -w $cols
-	  A full ROS 2 Jazzy installation is ~3.25 GB on Windows, aiming to give you {{ ITALIC }}absolutely everything{{ NORMAL }} to develop a robotics app. But the chance you always needed several dedicated tool to control a cyber turtle (tortoise, maybe), or multiple interchangeable implementations of a same net protocol (one of them warns you about not finding a separate software every time you start working, even though it's not loaded after all), or a Qt runtime for GUI is fractionally small.
-
-	  You'd also have to "colcon build" your app, wrestle with an "ament" version of CMake that amends nothing, rely on a dependency manager that breaks on Windows (though "Tier 1 support" is announced for this platform), and develop a skill set only to meet ROS' requirements, which takes you nowhere special.
-
-	  {{ WHITE }}Why{{ NORMAL }} invest the bandwidth, the disk/memory/deployed size and importantly the {{ ITALIC }}time{{ NORMAL }} for things you don't need?
+	The default {{ CYAN }}distro{{ NORMAL }}, {{ GREEN }}jazzy{{ NORMAL }}, is recommended for new projects; but you may be targeting a different one, hopefully newer, as type handling differs between humble and newer versions.
 	EOF
 
 # Start from here!
