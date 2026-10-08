@@ -48,6 +48,8 @@ ensure_venv: && discover_ros
 	echo '-- Ensuring venv'
 	[ -d .venv ] || python -m venv .venv
 	{{ venv_pip }} install -r requirements.txt
+	# Hijack package resolution of unnecessary ROS bloatwares
+	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
 
 [linux]
 activate_venv: ensure_venv
