@@ -10,7 +10,7 @@ default:
 	@just --list --list-heading '' --list-prefix '  just ' --justfile '{{ justfile() }}'
 
 # Start from here!
-prepare distro='jazzy': (use_ros distro) activate_venv
+prepare distro='jazzy': (use_ros distro) hint_activate_venv
 
 [private]
 fetch_ros distro='jazzy': && discover_ros
@@ -83,20 +83,20 @@ ensure_venv: && discover_ros
 	# Hijack package resolution of unnecessary ROS bloatwares
 	echo ../../../src/faked > .venv/lib/site-packages/faked.pth
 
-[linux]
-activate_venv: ensure_venv
+[linux, private]
+hint_activate_venv:
 	#!/usr/bin/env bash
 	echo
-	echo '-- Python venv need to be activated inside your current shell:'
+	echo '-- You can activate Python venv inside your current shell:'
 	echo
 	echo '  source .venv/{{ venv_bin_folder }}/activate'
 	echo
 
-[windows]
-activate_venv: ensure_venv
+[windows, private]
+hint_activate_venv:
 	#!/usr/bin/env bash
 	clear
-	echo '-- Python venv need to be activated inside your current shell.'
+	echo '-- You can activate Python venv inside your current shell.'
 	echo
 	echo 'For CMD:'
 	echo '  call .venv\{{ venv_bin_folder }}\activate.bat'
