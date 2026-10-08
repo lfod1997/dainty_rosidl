@@ -7,7 +7,7 @@ A.k.a. [rosidl](https://github.com/ros2/rosidl/) without ROS.
 ## Requirements
 
 0. Git
-1. Python 3.11+
+1. Python 3.11+ (with [pip](https://packages.debian.org/search?keywords=python3-pip) and [venv](https://packages.debian.org/search?keywords=python3-venv) installed)
 2. [Just](https://just.systems/)
 
 ## Usage

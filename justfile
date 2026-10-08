@@ -1,6 +1,8 @@
+python_bin_name := if os_family() == 'windows' { 'python' } else { 'python3' }
+pip_bin_name := if os_family() == 'windows' { 'pip' } else { 'pip3' }
 venv_bin_folder := if os_family() == 'windows' { 'Scripts' } else { 'bin' }
-venv_pip := '.venv/' + venv_bin_folder + '/pip'
-venv_python := '.venv/' + venv_bin_folder + '/python'
+venv_pip := '.venv/' + venv_bin_folder + '/' + pip_bin_name
+venv_python := '.venv/' + venv_bin_folder + '/' + python_bin_name
 
 # NOTE: repo names, verbatim; syntax: use double quote and comma
 ros_interfaces := '"common_interfaces", "rcl_interfaces"'
@@ -45,7 +47,7 @@ prepare distro='jazzy': (use_ros distro) hint_activate_venv
 ensure_venv: && discover_ros
 	#!/usr/bin/env bash
 	echo '-- Ensuring venv'
-	[ -d .venv ] || python -m venv .venv
+	[ -d .venv ] || {{ python_bin_name }} -m venv .venv
 	{{ venv_pip }} install -r requirements.txt
 	# Hijack package resolution of unnecessary ROS bloatwares
 	purelib=`{{venv_python}} -c "import sysconfig; print(sysconfig.get_path('purelib'))"`
