@@ -210,7 +210,7 @@ compile in_dir out_dir=in_dir:
 		if out_path is None: out_path = path.parents[1] # Suffixed with '/msg'
 		return HashTypeDescription('').generate_type_hashes(
 			package_name=package_name,
-			interface_files=[p],
+			interface_files=[f"{path.parent}:{path.name}"], # Legacy code hack; the change will be restored
 			include_paths=includes,
 			output_path=out_path
 		)[0]
