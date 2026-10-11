@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "patternProperties": {
+    "^[a-z][a-z0-9_]+$": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "uniqueItems": true,
+        "pattern": "^(\\w+/)+(msg|srv|action)/[A-Z][A-Za-z0-9]*\\.(idl|msg|srv|action)$"
+      }
+    }
+  },
+  "required": [
+    "rcl_interfaces",
+    "common_interfaces"
+  ]
+}
