@@ -14,15 +14,22 @@ if (JUST)
         OUTPUT_STRIP_TRAILING_WHITESPACE
     )
     if (just_version_result EQUAL 0)
-        if (just_version_output MATCHES "just\\s*([0-9]+\\.[0-9]+\\.[0-9]+)")
-            set(JUST_VERSION "${CMAKE_MATCH_1}")
+        set(_ver "${just_version_output}")
+        if (just_version_output MATCHES "just[ \t]*([0-9]+\\.[0-9]+\\.[0-9]+)")
+            set(_ver "${CMAKE_MATCH_1}")
         endif ()
+        set(JUST_VERSION "${_ver}" CACHE STRING "Just version (read-only)." FORCE)
+        mark_as_advanced(JUST_VERSION)
+    else ()
+        unset(JUST_VERSION)
     endif ()
+else ()
+    unset(JUST_VERSION)
 endif ()
 
 include(FindPackageHandleStandardArgs)
 find_package_handle_standard_args(Just
-    REQUIRED_VARS JUST
+    REQUIRED_VARS JUST JUST_VERSION
     VERSION_VAR JUST_VERSION
 )
 
