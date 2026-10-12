@@ -7,10 +7,10 @@ else ()
     set(ROS_DISTRO "jazzy" CACHE STRING "Target ROS2 distro, should be name of an official ROS2 branch.")
 endif ()
 
-if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+if (NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/public")
     set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} PARENT_SCOPE)
-endif()
+endif ()
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 find_package(Python3 REQUIRED)
@@ -29,6 +29,6 @@ execute_process(
 )
 
 # Export variables
-set(ROSIDL_INTERFACES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/interfaces" PARENT_SCOPE)
-set(ROSIDL_WORK_DIR "${CMAKE_CURRENT_SOURCE_DIR}" PARENT_SCOPE)
-set(ROSIDL_PYTHON "${ROSIDL_PYTHON}" PARENT_SCOPE)
+set(ROSIDL_INTERFACES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/interfaces" CACHE PATH "DaintyRosidl: Directory which official ROS interface repositories (the \"metapackages\") are cloned into." FORCE)
+set(ROSIDL_WORK_DIR "${CMAKE_CURRENT_SOURCE_DIR}" CACHE PATH "DaintyRosidl: Package directory." FORCE)
+set(ROSIDL_PYTHON "${ROSIDL_PYTHON}" CACHE FILEPATH "DaintyRosidl: Python3 interpreter that provides access to the rosidl venv." FORCE)
