@@ -38,6 +38,13 @@ function(rosidl_import_interfaces INTERFACE_ROOT)
     )
 
     ## Impl
+    set(_initial_import FALSE)
+    get_property(_tmp_roots GLOBAL PROPERTY ROSIDL_INTERFACE_ROOTS)
+    if (NOT "${INTERFACE_ROOT}" IN_LIST _tmp_roots)
+        set(_initial_import TRUE)
+        set_property(GLOBAL APPEND PROPERTY ROSIDL_INTERFACE_ROOTS "${INTERFACE_ROOT}")
+    endif ()
+
     set(_extern_src "")
     set(_extern_mps "")
 
@@ -72,12 +79,34 @@ function(rosidl_import_interfaces INTERFACE_ROOT)
     endif ()
 
     # Glob intern sources
-    get_property(_tmp_roots GLOBAL PROPERTY ROSIDL_INTERFACE_ROOTS)
-    if (NOT "${INTERFACE_ROOT}" IN_LIST _tmp_roots)
+    if (_initial_import)
         file(GLOB_RECURSE _intern_src CONFIGURE_DEPENDS "${INTERFACE_ROOT}/*.idl")
-        set_property(GLOBAL APPEND PROPERTY ROSIDL_INTERFACE_ROOTS "${INTERFACE_ROOT}")
     else ()
         file(GLOB_RECURSE _intern_src "${INTERFACE_ROOT}/*.idl")
+    endif ()
+
+    # Service support
+    set(_service_event_info_mp "rcl_interfaces")
+    set(_service_event_info_api "service_msgs/msg/ServiceEventInfo")
+    set(_service_event_info_src "${ROSIDL_INTERFACES_DIR}/${_service_event_info_mp}/${_service_event_info_api}.idl")
+    if (NOT "${_service_event_info_src}" IN_LIST _extern_src)
+        set(_has_srv FALSE)
+        foreach (src IN LISTS _intern_src _extern_src)
+            if (src MATCHES "/srv/")
+                set(_has_srv TRUE)
+                break()
+            endif ()
+        endforeach ()
+        if (_has_srv)
+            if (_initial_import)
+                # Only tell once
+                message("Adding interface '${_service_event_info_api}' because imported interfaces contained srv.")
+            endif ()
+            list(APPEND _extern_src "${_service_event_info_src}")
+            if (NOT "${_service_event_info_mp}" IN_LIST _extern_mps)
+                list(APPEND _extern_mps "${_service_event_info_mp}")
+            endif ()
+        endif ()
     endif ()
 
     ## Returns
