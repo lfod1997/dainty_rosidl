@@ -58,7 +58,13 @@ ensure_venv: && discover_ros
 # Print the Python to use!
 find_python:
 	#!/usr/bin/env bash
-	printf '%s' '{{ absolute_path(venv_python) }}'
+	if [ -d .venv ]; then
+		printf '%s' '{{ absolute_path(venv_python) }}' # Avoids line break at the end
+	else
+		echo 'error: No valid venv!' >&2
+		echo 'hint: Depending on your need, you may want to run {{ BOLD + WHITE }}just use_ros{{ NORMAL }} or {{ BOLD + WHITE }}just ensure_venv{{ NORMAL }} first.' >&2
+		exit 127
+	fi
 
 [private]
 checkout_ros distro='jazzy': && discover_ros
