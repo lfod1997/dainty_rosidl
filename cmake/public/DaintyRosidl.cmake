@@ -1,5 +1,26 @@
 include(CMakeParseArguments)
 
+function(rosidl_interface_root_as_metapackage_name)
+    ## Args
+    set(options "")
+    set(oneValueArgs INTERFACE_ROOT OUTPUT_VARIABLE)
+    set(multiValueArgs "")
+    cmake_parse_arguments(
+        PARSE_ARGV 0 _arg
+        "${options}" "${oneValueArgs}" "${multiValueArgs}"
+    )
+
+    ## Impl
+    file(RELATIVE_PATH _result "${CMAKE_CURRENT_SOURCE_DIR}" "${_arg_INTERFACE_ROOT}")
+    # Use folder name if INTERFACE_ROOT equals CMAKE_CURRENT_SOURCE_DIR
+    if (_result STREQUAL "")
+        get_filename_component(_result "${_arg_INTERFACE_ROOT}" NAME)
+    endif ()
+
+    ## Returns
+    set(${_arg_OUTPUT_VARIABLE} "${_result}" PARENT_SCOPE)
+endfunction()
+
 function(rosidl_get_metapackage_path)
     ## Args
     set(options "")
@@ -13,11 +34,14 @@ function(rosidl_get_metapackage_path)
     ## Impl
     if (_arg_METAPACKAGE)
         if (_arg_INTERFACE_ROOT)
-            message(FATAL_ERROR "INTERFACE_ROOT and METAPACKAGE can't be both specified")
+            message(WARNING "INTERFACE_ROOT and METAPACKAGE both specified; ignoring INTERFACE_ROOT")
         endif ()
         set(_result "${ROSIDL_INTERFACES_DIR}/${_arg_METAPACKAGE}")
     elseif (_arg_INTERFACE_ROOT)
-        file(RELATIVE_PATH _intern_mp "${CMAKE_CURRENT_SOURCE_DIR}" "${_arg_INTERFACE_ROOT}")
+        rosidl_interface_root_as_metapackage_name(
+            INTERFACE_ROOT "${_arg_INTERFACE_ROOT}"
+            OUTPUT_VARIABLE _intern_mp
+        )
         set(_result "${ROSIDL_INTERFACES_DIR}/${_intern_mp}")
     else ()
         message(FATAL_ERROR "Either INTERFACE_ROOT or METAPACKAGE must be specified")
@@ -30,7 +54,7 @@ endfunction()
 function(rosidl_import_interfaces INTERFACE_ROOT)
     ## Args
     set(options "")
-    set(oneValueArgs INTERN_SOURCES EXTERN_SOURCES EXTERN_METAPACKAGES)
+    set(oneValueArgs INTERN_SOURCES EXTERN_SOURCES INTERN_METAPACKAGE EXTERN_METAPACKAGES)
     set(multiValueArgs "")
     cmake_parse_arguments(
         PARSE_ARGV 0 _arg
@@ -84,6 +108,10 @@ function(rosidl_import_interfaces INTERFACE_ROOT)
     else ()
         file(GLOB_RECURSE _intern_src "${INTERFACE_ROOT}/*.idl")
     endif ()
+    rosidl_interface_root_as_metapackage_name(
+        INTERFACE_ROOT "${INTERFACE_ROOT}"
+        OUTPUT_VARIABLE _intern_mp
+    )
 
     # Service support
     set(_service_event_info_mp "rcl_interfaces")
@@ -112,6 +140,7 @@ function(rosidl_import_interfaces INTERFACE_ROOT)
     ## Returns
     set(${_arg_INTERN_SOURCES} "${_intern_src}" PARENT_SCOPE)
     set(${_arg_EXTERN_SOURCES} "${_extern_src}" PARENT_SCOPE)
+    set(${_arg_INTERN_METAPACKAGE} "${_intern_mp}" PARENT_SCOPE)
     set(${_arg_EXTERN_METAPACKAGES} "${_extern_mps}" PARENT_SCOPE)
 endfunction()
 
